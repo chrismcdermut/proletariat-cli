@@ -1,19 +1,3 @@
-/**
- * Unified list menu component
- *
- * Provides a consistent interactive selection experience across all CLI commands.
- * Wraps inquirer's list/checkbox prompts with:
- *   - Consistent choice formatting
- *   - Configurable pagination (pageSize controls visible rows; inquirer scrolls natively)
- *   - Optional grouping with separator headers
- *   - JSON mode: outputs prompt schema for AI agent consumers, then exits
- *   - Empty state handling with configurable messaging
- *
- * Usage:
- *   Generic:  listMenu({ items, format, getValue, message })
- *   Tickets:  ticketListMenu({ tickets, message })
- */
-
 import inquirer from 'inquirer'
 import { styles, formatPriority } from '../styles.js'
 import {
@@ -22,12 +6,10 @@ import {
   buildPromptConfig,
   createMetadata,
 } from '../prompt-json.js'
-import { type Ticket } from '../pmo/types.js'
+import { type Ticket, PRIORITIES } from '../pmo/types.js'
 
-// ── Ordering ────────────────────────────────────────────────────
-
-/** Standard priority display order for ticket grouping */
-const PRIORITY_ORDER = ['P0', 'P1', 'P2', 'P3', 'None']
+// Grouping order: defined priorities in schema order, then the "unset" bucket
+const PRIORITY_ORDER = [...PRIORITIES, 'None']
 
 // ── Interfaces ──────────────────────────────────────────────────
 
@@ -131,12 +113,6 @@ export function groupItems<T>(
     .filter(([, groupMembers]) => groupMembers.length > 0)
 }
 
-/**
- * Format a ticket as plain text (no chalk styling).
- * Used for JSON mode output and is the basis for unit testing the display format.
- *
- * Canonical format: `[P0] TKT-001 - Title [In Progress] [project] (assignee)`
- */
 export function formatTicketPlain(
   ticket: Ticket,
   options: {
@@ -174,16 +150,6 @@ export function formatTicketPlain(
 
 // ── Generic list menu ───────────────────────────────────────────
 
-/**
- * Generic list/checkbox menu.
- *
- * Handles pagination, optional grouping, JSON mode, and empty state.
- * Pagination for large lists (1000+) is handled natively by inquirer's
- * scrolling — pageSize controls how many rows are visible at once.
- *
- * @returns list mode → selected value or null if empty
- *          checkbox mode → array of selected values or [] if empty
- */
 export function listMenu<T>(options: ListMenuOption<T> & { mode: 'checkbox' }): Promise<string[]>
 export function listMenu<T>(options: ListMenuOption<T> & { mode?: 'list' }): Promise<string | null>
 export async function listMenu<T>(
@@ -296,20 +262,6 @@ export async function listMenu<T>(
 
 // ── Ticket list menu ────────────────────────────────────────────
 
-/**
- * Unified ticket picker menu.
- *
- * Produces a consistent display format across every command that shows tickets:
- *   Interactive: `[P0] TKT-001 - Title [In Progress]`   (chalk-styled)
- *   JSON:        `[P0] TKT-001 - Title [In Progress]`   (plain text)
- *
- * Priority grouping is on by default, creating P0 → P1 → P2 → P3 → None sections
- * with separator headers. Pagination is handled by inquirer's native scrolling
- * (pageSize controls how many rows are visible).
- *
- * @returns list mode → selected ticket ID or null if empty
- *          checkbox mode → array of ticket IDs or [] if empty
- */
 export function ticketListMenu(options: TicketMenuOptions & { mode: 'checkbox' }): Promise<string[]>
 export function ticketListMenu(options: TicketMenuOptions & { mode?: 'list' }): Promise<string | null>
 export async function ticketListMenu(
