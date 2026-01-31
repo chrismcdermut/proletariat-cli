@@ -18,6 +18,7 @@ import {
   createMetadata,
   buildPromptConfig,
 } from '../../lib/prompt-json.js';
+import { ticketListMenu } from '../../lib/prompts/list-menu.js';
 
 export default class PRLink extends Command {
   static description = 'Link an existing GitHub pull request to a ticket';
@@ -112,28 +113,19 @@ export default class PRLink extends Command {
           return;
         }
 
-        // Build choices once, use for both JSON and interactive modes
-        const ticketChoices = activeTickets.map(t => ({
-          name: `${t.id} - ${t.title} (${t.statusName})`,
-          value: t.id,
-        }));
-        const ticketMessage = 'Select ticket to link PR to:';
+        const selected = await ticketListMenu({
+          tickets: activeTickets,
+          message: 'Select ticket to link PR to:',
+          jsonMode: jsonMode ? { flags, commandName: 'pr link' } : null,
+          log: (msg) => this.log(msg),
+        });
 
-        // In JSON mode, output ticket selection prompt and exit
-        if (jsonMode) {
-          outputPromptAsJson(
-            buildPromptConfig('list', 'ticketId', ticketMessage, ticketChoices),
-            createMetadata('pr link', flags)
-          );
+        if (!selected) {
+          await storage.close();
+          db.close();
+          return;
         }
-
-        const { selectedTicketId } = await inquirer.prompt([{
-          type: 'list',
-          name: 'selectedTicketId',
-          message: ticketMessage,
-          choices: ticketChoices,
-        }]);
-        ticketId = selectedTicketId;
+        ticketId = selected;
       }
 
       // Get ticket

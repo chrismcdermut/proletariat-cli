@@ -11,6 +11,7 @@ import {
   createMetadata,
   buildPromptConfig,
 } from '../../lib/prompt-json.js';
+import { ticketListMenu } from '../../lib/prompts/list-menu.js';
 
 export default class SpecTicket extends PMOCommand {
   static description = 'Assign a ticket to a spec document';
@@ -72,23 +73,17 @@ export default class SpecTicket extends PMOCommand {
         return handleError('NO_TICKETS', 'No tickets found. Create one first with: prlt ticket create');
       }
 
-      // In JSON mode, output ticket selection prompt
-      if (jsonMode) {
-        const ticketChoices = tickets.map(t => ({ name: `${t.id}: ${t.title}`, value: t.id }));
-        outputPromptAsJson(
-          buildPromptConfig('list', 'ticketId', 'Select ticket to link:', ticketChoices),
-          createMetadata('spec ticket', flags)
-        );
+      const selected = await ticketListMenu({
+        tickets,
+        message: 'Select ticket to link:',
+        jsonMode: jsonMode ? { flags, commandName: 'spec ticket' } : null,
+        log: (msg) => this.log(msg),
+      });
+
+      if (!selected) {
         return;
       }
-
-      const { selectedTicket } = await inquirer.prompt([{
-        type: 'list',
-        name: 'selectedTicket',
-        message: 'Select ticket to link:',
-        choices: tickets.map(t => ({ name: `${t.id}: ${t.title}`, value: t.id })),
-      }]);
-      ticketId = selectedTicket;
+      ticketId = selected;
     }
 
     if (!ticketId) {

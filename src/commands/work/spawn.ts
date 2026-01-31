@@ -4,6 +4,7 @@ import inquirer from 'inquirer'
 import Database from 'better-sqlite3'
 import { PMOCommand, pmoBaseFlags, autoExportToBoard } from '../../lib/pmo/index.js'
 import { styles } from '../../lib/styles.js'
+import { ticketListMenu } from '../../lib/prompts/list-menu.js'
 import {
   getWorkspaceInfo,
   getTicketTmuxSession,
@@ -413,49 +414,14 @@ export default class WorkSpawn extends PMOCommand {
           return
         }
 
-        // Group tickets by priority for display
-        const PRIORITY_ORDER = ['P0', 'P1', 'P2', 'P3', 'None']
-        const ticketsByPriority = new Map<string, typeof allTickets>()
-        for (const priority of PRIORITY_ORDER) {
-          ticketsByPriority.set(priority, [])
-        }
-        for (const ticket of ticketsForSelection) {
-          const priority = ticket.priority || 'None'
-          if (!ticketsByPriority.has(priority)) {
-            ticketsByPriority.set(priority, [])
-          }
-          ticketsByPriority.get(priority)!.push(ticket)
-        }
-
-        // Build choices with priority separators
-        const choices: Array<{ name: string; value: string } | inquirer.Separator> = []
-        for (const priority of PRIORITY_ORDER) {
-          const tickets = ticketsByPriority.get(priority) || []
-          if (tickets.length === 0) continue
-          choices.push(new inquirer.Separator(`── ${priority} (${tickets.length}) ──`))
-          for (const ticket of tickets) {
-            const statusBadge = ticket.statusName ? ` [${ticket.statusName}]` : ''
-            choices.push({
-              name: `[${priority}] ${ticket.id} - ${ticket.title}${statusBadge}`,
-              value: ticket.id,
-            })
-          }
-        }
-
-        const { selectedTicketIds } = await inquirer.prompt([
-          {
-            type: 'checkbox',
-            name: 'selectedTicketIds',
-            message: 'Select tickets to spawn (space to toggle, enter to confirm):',
-            choices,
-            validate: (input: string[]) => {
-              if (input.length === 0) {
-                return 'Please select at least one ticket'
-              }
-              return true
-            },
-          },
-        ])
+        const selectedTicketIds = await ticketListMenu({
+          tickets: ticketsForSelection,
+          message: 'Select tickets to spawn (space to toggle, enter to confirm):',
+          mode: 'checkbox',
+          groupByPriority: true,
+          validate: (selected) => selected.length === 0 ? 'Please select at least one ticket' : true,
+          log: (msg) => this.log(msg),
+        })
 
         ticketsToSpawn = allTickets.filter(t => selectedTicketIds.includes(t.id))
 

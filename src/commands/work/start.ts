@@ -15,6 +15,7 @@ import {
 import { getWorkColumnSetting, findColumnByName } from '../../lib/pmo/utils.js'
 import { StateCategory, WorkAction } from '../../lib/pmo/types.js'
 import { styles } from '../../lib/styles.js'
+import { ticketListMenu } from '../../lib/prompts/list-menu.js'
 import {
   getWorkspaceInfo,
   createEphemeralAgent,
@@ -274,13 +275,13 @@ export default class WorkStart extends PMOCommand {
           return handleError('NO_TICKETS', 'No tickets found. Create a ticket first with "prlt ticket create".')
         }
 
-        const selected = await this.selectFromList({
+        const selected = await ticketListMenu({
+          tickets: allTickets,
           message: 'Select ticket to work on:',
-          items: allTickets,
-          getName: (t) => `[${t.priority || 'None'}] ${t.id} - ${t.title} (${t.assignee ? `assignee: ${t.assignee}` : 'unassigned'})`,
-          getValue: (t) => t.id,
-          getCommand: (t) => `prlt work start ${t.id} --json`,
+          showAssignee: true,
           jsonMode: jsonMode ? { flags, commandName: 'work start' } : null,
+          getCommand: (t) => `prlt work start ${t.id} --json`,
+          log: (msg) => this.log(msg),
         })
 
         if (!selected) {

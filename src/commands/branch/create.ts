@@ -33,6 +33,8 @@ import {
 import { getCoderName, getGitUserName, getGitHubUsername } from '../../lib/execution/config.js'
 import { getBranchType } from '../../lib/execution/types.js'
 import { detectAgentName } from '../../lib/agents/index.js'
+import { ticketListMenu } from '../../lib/prompts/list-menu.js'
+import { type Ticket } from '../../lib/pmo/types.js'
 
 interface WizardResult {
   branchName: string
@@ -403,7 +405,7 @@ export default class BranchCreate extends PMOCommand {
     const defaultOwnerName = this.getDefaultOwnerName()
 
     // Load tickets from PMO (across all projects)
-    const tickets: Array<{ id: string; title: string; category?: string; status?: string; projectName?: string }> = []
+    const tickets: Ticket[] = []
     try {
       // Get all projects and their tickets
       const projects = await this.storage.listProjects()
@@ -415,7 +417,7 @@ export default class BranchCreate extends PMOCommand {
         const actionable = projectTickets.filter(t =>
           !t.status || ['todo', 'in-progress', 'backlog', 'in_progress'].includes(t.status.toLowerCase())
         )
-        tickets.push(...actionable.map(t => ({ ...t, projectName: project.name })))
+        tickets.push(...actionable.map(t => ({ ...t, projectName: project.name }) as Ticket))
       }
     } catch {
       // PMO context error - just skip ticket selection
@@ -474,27 +476,19 @@ export default class BranchCreate extends PMOCommand {
    * Quick wizard - just select ticket, auto-generate with defaults.
    */
   private async runTicketQuickWizard(
-    tickets: Array<{ id: string; title: string; category?: string; status?: string; projectName?: string }>,
+    tickets: Ticket[],
     defaultOwnerName: string | undefined
   ): Promise<WizardResult | null> {
-    // Select ticket (show project name if multiple projects)
-    const hasMultipleProjects = new Set(tickets.map(t => t.projectName)).size > 1
-    const ticketChoices = tickets.map(t => ({
-      name: hasMultipleProjects
-        ? `${t.id} - ${t.title.substring(0, 40)}${t.title.length > 40 ? '...' : ''} ${styles.muted(`[${t.projectName}]`)}`
-        : `${t.id} - ${t.title.substring(0, 50)}${t.title.length > 50 ? '...' : ''} ${styles.muted(`[${t.status || 'todo'}]`)}`,
-      value: t,
-    }))
+    const selectedId = await ticketListMenu({
+      tickets,
+      message: 'Select ticket:',
+      showProject: 'auto',
+      log: (msg) => this.log(msg),
+    })
 
-    const { ticket } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'ticket',
-        message: 'Select ticket:',
-        choices: ticketChoices,
-        pageSize: 15,
-      },
-    ])
+    if (!selectedId) return null
+    const ticket = tickets.find(t => t.id === selectedId)
+    if (!ticket) return null
 
     // Auto-generate branch name with defaults
     const type = getBranchType(ticket.category) as BranchType
@@ -515,27 +509,19 @@ export default class BranchCreate extends PMOCommand {
    * Wizard flow for creating branch from a ticket.
    */
   private async runTicketWizard(
-    tickets: Array<{ id: string; title: string; category?: string; status?: string; projectName?: string }>,
+    tickets: Ticket[],
     defaultOwnerName: string | undefined
   ): Promise<WizardResult | null> {
-    // Select ticket (show project name if multiple projects)
-    const hasMultipleProjects = new Set(tickets.map(t => t.projectName)).size > 1
-    const ticketChoices = tickets.map(t => ({
-      name: hasMultipleProjects
-        ? `${t.id} - ${t.title.substring(0, 40)}${t.title.length > 40 ? '...' : ''} ${styles.muted(`[${t.projectName}]`)}`
-        : `${t.id} - ${t.title.substring(0, 50)}${t.title.length > 50 ? '...' : ''} ${styles.muted(`[${t.status || 'todo'}]`)}`,
-      value: t,
-    }))
+    const selectedId = await ticketListMenu({
+      tickets,
+      message: 'Select ticket:',
+      showProject: 'auto',
+      log: (msg) => this.log(msg),
+    })
 
-    const { ticket } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'ticket',
-        message: 'Select ticket:',
-        choices: ticketChoices,
-        pageSize: 15,
-      },
-    ])
+    if (!selectedId) return null
+    const ticket = tickets.find(t => t.id === selectedId)
+    if (!ticket) return null
 
     // Get owner (defaults to GitHub username)
     const { owner } = await inquirer.prompt([
