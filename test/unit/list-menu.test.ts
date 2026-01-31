@@ -126,19 +126,20 @@ describe('listMenu module', () => {
     })
   })
 
-  describe('JSON mode error output', () => {
-    // These tests verify that the functions can detect JSON mode
-    // but don't actually test the JSON output (that would require e2e tests)
-    it('listMenu should accept jsonMode option', async () => {
+  describe('JSON mode configuration', () => {
+    // Note: Full JSON mode testing requires e2e tests because:
+    // 1. In non-TTY environments (like tests), shouldOutputJson() returns true
+    // 2. JSON mode calls process.exit() which terminates the test
+    // Here we just verify the function accepts the jsonMode option shape
+    it('listMenu should accept jsonMode as null', async () => {
       const { listMenu } = await import('../../src/lib/prompts/list-menu.js')
 
-      // When there are no items, it outputs an error in JSON mode
-      // We can't easily capture that output, but we can verify the function accepts the option
+      // With jsonMode: null, JSON mode is disabled regardless of TTY status
       const result = await listMenu({
         message: 'Select:',
         choices: [],
         emptyMessage: 'No items',
-        jsonMode: { flags: { json: false }, commandName: 'test' }, // json: false to avoid exit
+        jsonMode: null,
       })
 
       expect(result).to.be.null
