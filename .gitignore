@@ -14,3 +14,4 @@ pnpm-lock.yaml
 
 .claude
 .pmo
+tsconfig.tsbuildinfo
