@@ -404,21 +404,14 @@ export default class BranchCreate extends PMOCommand {
     // Get default owner name from config or GitHub
     const defaultOwnerName = this.getDefaultOwnerName()
 
-    // Load tickets from PMO (across all projects)
-    const tickets: Ticket[] = []
+    // Load tickets from PMO (across all projects, or scoped by --project flag)
+    let tickets: Ticket[] = []
     try {
-      // Get all projects and their tickets
-      const projects = await this.storage.listProjects()
       const projectId = (flags as { project?: string }).project
-      for (const project of projects) {
-        // eslint-disable-next-line no-await-in-loop -- Collecting tickets from projects
-        const projectTickets = await this.storage.listTickets(projectId)
-        // Filter to actionable tickets (todo, in-progress, backlog)
-        const actionable = projectTickets.filter(t =>
-          !t.status || ['todo', 'in-progress', 'backlog', 'in_progress'].includes(t.status.toLowerCase())
-        )
-        tickets.push(...actionable.map(t => ({ ...t, projectName: project.name }) as Ticket))
-      }
+      const allTickets = await this.storage.listTickets(projectId)
+      tickets = allTickets.filter(t =>
+        !t.status || ['todo', 'in-progress', 'backlog', 'in_progress'].includes(t.status.toLowerCase())
+      )
     } catch {
       // PMO context error - just skip ticket selection
     }

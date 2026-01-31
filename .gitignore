@@ -3,6 +3,7 @@
 **/.DS_Store
 /.idea
 /dist
+tsconfig.tsbuildinfo
 /tmp
 /node_modules
 oclif.manifest.json
