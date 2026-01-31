@@ -19,6 +19,12 @@ import {
   createMetadata,
   buildPromptConfig,
 } from '../../lib/prompt-json.js'
+import {
+  listMenuMulti,
+  formatTicketChoice,
+  PRIORITY_ORDER,
+  getTicketPriorityGroup,
+} from '../../lib/prompts/index.js'
 
 export default class WorkSpawn extends PMOCommand {
   static description = 'Spawn work for multiple tickets by column (batch mode)'
@@ -413,51 +419,26 @@ export default class WorkSpawn extends PMOCommand {
           return
         }
 
-        // Group tickets by priority for display
-        const PRIORITY_ORDER = ['P0', 'P1', 'P2', 'P3', 'None']
-        const ticketsByPriority = new Map<string, typeof allTickets>()
-        for (const priority of PRIORITY_ORDER) {
-          ticketsByPriority.set(priority, [])
-        }
-        for (const ticket of ticketsForSelection) {
-          const priority = ticket.priority || 'None'
-          if (!ticketsByPriority.has(priority)) {
-            ticketsByPriority.set(priority, [])
-          }
-          ticketsByPriority.get(priority)!.push(ticket)
-        }
+        // Use unified multi-select menu with priority grouping
+        const selectedTickets = await listMenuMulti({
+          message: 'Select tickets to spawn (space to toggle, enter to confirm):',
+          choices: ticketsForSelection,
+          format: (t) => formatTicketChoice(t, 'menu'),
+          getValue: (t) => t.id,
+          groupBy: getTicketPriorityGroup,
+          groupOrder: [...PRIORITY_ORDER],
+          pageSize: 15,
+          minSelections: 1,
+          emptyMessage: 'No tickets available in that column.',
+        })
 
-        // Build choices with priority separators
-        const choices: Array<{ name: string; value: string } | inquirer.Separator> = []
-        for (const priority of PRIORITY_ORDER) {
-          const tickets = ticketsByPriority.get(priority) || []
-          if (tickets.length === 0) continue
-          choices.push(new inquirer.Separator(`── ${priority} (${tickets.length}) ──`))
-          for (const ticket of tickets) {
-            const statusBadge = ticket.statusName ? ` [${ticket.statusName}]` : ''
-            choices.push({
-              name: `[${priority}] ${ticket.id} - ${ticket.title}${statusBadge}`,
-              value: ticket.id,
-            })
-          }
+        if (!selectedTickets || selectedTickets.length === 0) {
+          db.close()
+          this.log(styles.muted('No tickets selected.'))
+          return
         }
 
-        const { selectedTicketIds } = await inquirer.prompt([
-          {
-            type: 'checkbox',
-            name: 'selectedTicketIds',
-            message: 'Select tickets to spawn (space to toggle, enter to confirm):',
-            choices,
-            validate: (input: string[]) => {
-              if (input.length === 0) {
-                return 'Please select at least one ticket'
-              }
-              return true
-            },
-          },
-        ])
-
-        ticketsToSpawn = allTickets.filter(t => selectedTicketIds.includes(t.id))
+        ticketsToSpawn = selectedTickets
 
         this.log('')
         this.log(styles.header(`🚀 Spawn Many: ${ticketsToSpawn.length} tickets`))

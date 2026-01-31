@@ -12,6 +12,13 @@ import {
   createMetadata,
   buildPromptConfig,
 } from '../../lib/prompt-json.js'
+import {
+  listMenu,
+  formatTicketChoice,
+  buildTicketCommand,
+  PRIORITY_ORDER,
+  getTicketPriorityGroup,
+} from '../../lib/prompts/index.js'
 import { getWorkColumnSetting, findColumnByName } from '../../lib/pmo/utils.js'
 import { StateCategory, WorkAction } from '../../lib/pmo/types.js'
 import { styles } from '../../lib/styles.js'
@@ -274,20 +281,26 @@ export default class WorkStart extends PMOCommand {
           return handleError('NO_TICKETS', 'No tickets found. Create a ticket first with "prlt ticket create".')
         }
 
-        const selected = await this.selectFromList({
+        // Use unified list menu with priority grouping
+        const selectedTicket = await listMenu({
           message: 'Select ticket to work on:',
-          items: allTickets,
-          getName: (t) => `[${t.priority || 'None'}] ${t.id} - ${t.title} (${t.assignee ? `assignee: ${t.assignee}` : 'unassigned'})`,
+          choices: allTickets,
+          format: (t) => formatTicketChoice(t, 'menu'),
           getValue: (t) => t.id,
-          getCommand: (t) => `prlt work start ${t.id} --json`,
+          getCommand: (t) => buildTicketCommand(t, 'prlt work start {id} --json'),
+          groupBy: getTicketPriorityGroup,
+          groupOrder: [...PRIORITY_ORDER],
+          pageSize: 15,
+          emptyMessage: 'No tickets found. Create a ticket first with "prlt ticket create".',
           jsonMode: jsonMode ? { flags, commandName: 'work start' } : null,
         })
 
-        if (!selected) {
+        if (!selectedTicket) {
           db.close()
           return
         }
-        ticketId = selected
+        // listMenu returns the original item (Ticket), extract the id
+        ticketId = typeof selectedTicket === 'string' ? selectedTicket : selectedTicket.id
       }
 
       // Get ticket

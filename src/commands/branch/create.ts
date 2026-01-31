@@ -13,6 +13,10 @@ import {
   buildPromptConfig,
 } from '../../lib/prompt-json.js'
 import {
+  listMenu,
+  formatTicketChoice,
+} from '../../lib/prompts/index.js'
+import {
   BRANCH_TYPES,
   BranchType,
   DEVELOPMENT_TYPES,
@@ -477,24 +481,36 @@ export default class BranchCreate extends PMOCommand {
     tickets: Array<{ id: string; title: string; category?: string; status?: string; projectName?: string }>,
     defaultOwnerName: string | undefined
   ): Promise<WizardResult | null> {
-    // Select ticket (show project name if multiple projects)
+    // Select ticket using unified list menu
     const hasMultipleProjects = new Set(tickets.map(t => t.projectName)).size > 1
-    const ticketChoices = tickets.map(t => ({
-      name: hasMultipleProjects
-        ? `${t.id} - ${t.title.substring(0, 40)}${t.title.length > 40 ? '...' : ''} ${styles.muted(`[${t.projectName}]`)}`
-        : `${t.id} - ${t.title.substring(0, 50)}${t.title.length > 50 ? '...' : ''} ${styles.muted(`[${t.status || 'todo'}]`)}`,
-      value: t,
-    }))
 
-    const { ticket } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'ticket',
-        message: 'Select ticket:',
-        choices: ticketChoices,
-        pageSize: 15,
-      },
-    ])
+    const ticket = await listMenu({
+      message: 'Select ticket:',
+      choices: tickets,
+      format: (t) => formatTicketChoice(
+        {
+          id: t.id,
+          title: t.title,
+          category: t.category,
+          statusName: t.status,
+          projectName: t.projectName,
+          subtasks: [],
+          labels: [],
+          metadata: {},
+          statusId: '',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        hasMultipleProjects ? { showProject: true, showStatus: false, maxTitleLength: 40 } : { showStatus: true, maxTitleLength: 50 }
+      ),
+      getValue: (t) => t,
+      pageSize: 15,
+      emptyMessage: 'No tickets available.',
+    })
+
+    if (!ticket) {
+      return null
+    }
 
     // Auto-generate branch name with defaults
     const type = getBranchType(ticket.category) as BranchType
@@ -518,24 +534,36 @@ export default class BranchCreate extends PMOCommand {
     tickets: Array<{ id: string; title: string; category?: string; status?: string; projectName?: string }>,
     defaultOwnerName: string | undefined
   ): Promise<WizardResult | null> {
-    // Select ticket (show project name if multiple projects)
+    // Select ticket using unified list menu
     const hasMultipleProjects = new Set(tickets.map(t => t.projectName)).size > 1
-    const ticketChoices = tickets.map(t => ({
-      name: hasMultipleProjects
-        ? `${t.id} - ${t.title.substring(0, 40)}${t.title.length > 40 ? '...' : ''} ${styles.muted(`[${t.projectName}]`)}`
-        : `${t.id} - ${t.title.substring(0, 50)}${t.title.length > 50 ? '...' : ''} ${styles.muted(`[${t.status || 'todo'}]`)}`,
-      value: t,
-    }))
 
-    const { ticket } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'ticket',
-        message: 'Select ticket:',
-        choices: ticketChoices,
-        pageSize: 15,
-      },
-    ])
+    const ticket = await listMenu({
+      message: 'Select ticket:',
+      choices: tickets,
+      format: (t) => formatTicketChoice(
+        {
+          id: t.id,
+          title: t.title,
+          category: t.category,
+          statusName: t.status,
+          projectName: t.projectName,
+          subtasks: [],
+          labels: [],
+          metadata: {},
+          statusId: '',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        hasMultipleProjects ? { showProject: true, showStatus: false, maxTitleLength: 40 } : { showStatus: true, maxTitleLength: 50 }
+      ),
+      getValue: (t) => t,
+      pageSize: 15,
+      emptyMessage: 'No tickets available.',
+    })
+
+    if (!ticket) {
+      return null
+    }
 
     // Get owner (defaults to GitHub username)
     const { owner } = await inquirer.prompt([
